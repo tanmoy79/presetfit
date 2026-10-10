@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from presetfit._typing import FloatArray
 from presetfit.color.pixels import Pixels
 
 
@@ -23,7 +24,7 @@ class PixelSampler:
 
     def sample(self, pixels: Pixels) -> Pixels:
         """Return up to ``size`` pixels as a flat float64 ``(n, 3)`` array."""
-        flat = pixels.data.reshape(-1, 3)
+        flat: FloatArray = pixels.data.reshape(-1, 3)
         if len(flat) > self._size:
             rng = np.random.default_rng(self._seed)
             flat = flat[rng.choice(len(flat), size=self._size, replace=False)]
