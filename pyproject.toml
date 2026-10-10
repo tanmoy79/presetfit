@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "presetfit"
+description = "Give one photo the look of another and list the edits that did it."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dynamic = ["version"]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pillow>=10.1",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+dev = [
+    "presetfit[api]",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "httpx2>=2.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+presetfit = "presetfit.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "presetfit._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+presetfit = ["py.typed", "api/static/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+# Warnings fail the build, so deprecations in our own code are fixed straight away.
+# Deprecations raised inside third-party packages are theirs to fix; just show them.
+filterwarnings = [
+    "error",
+    "default::DeprecationWarning",
+    "error::DeprecationWarning:presetfit",
+]
+
+[tool.coverage.run]
+source = ["presetfit"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_also = ["if __name__ == .__main__.:", "raise NotImplementedError"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "C4", "PT", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["scipy.*"]
+ignore_missing_imports = true

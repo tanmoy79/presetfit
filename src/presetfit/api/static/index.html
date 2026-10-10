@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PresetFit</title>
+<style>
+  /* A grading suite is painted neutral grey so the surround never tints how
+     you judge colour. The page follows the same rule: no hue anywhere except
+     inside the photos and on the slider tracks, where hue is information. */
+  :root {
+    --surround: #3b3b3b;
+    --panel: #2f2f2f;
+    --well: #262626;
+    --rule: #4a4a4a;
+    --text: #ececec;
+    --muted: #a8a8a8;
+    --knob: #ffffff;
+    --danger: #ffb4a8;
+    --radius: 6px;
+    font-family: "Avenir Next", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surround); color: var(--text); }
+  h1, h2, h3, p { margin: 0; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--knob); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .bench {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) 330px;
+    gap: 1px;
+    min-height: 100vh;
+    background: var(--well);
+  }
+  .bench > section { background: var(--panel); padding: 20px; }
+  .bench > .viewer { background: var(--surround); display: flex; flex-direction: column; gap: 14px; }
+
+  .title { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin-top: 6px; }
+
+  .inputs { display: flex; flex-direction: column; gap: 18px; }
+  .pair { display: grid; gap: 18px; }
+  .slot-name { font-weight: 600; margin-bottom: 6px; }
+  .drop {
+    position: relative; display: grid; place-items: center; text-align: center;
+    aspect-ratio: 3 / 2; padding: 10px; overflow: hidden;
+    background: var(--well); border: 1px dashed var(--rule); border-radius: var(--radius);
+    color: var(--muted); cursor: pointer; overflow-wrap: anywhere;
+  }
+  .drop.over { border-color: var(--knob); color: var(--text); }
+  .drop.filled { border-style: solid; padding: 0; }
+  .drop img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop:focus-within { outline: 2px solid var(--knob); outline-offset: 2px; }
+  /* What the app found out about this photo. An error stays under the photo
+     it belongs to, so it is clear which of the two files to replace. */
+  .slot-note { margin-top: 6px; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
+  .slot.invalid .drop { border: 1px solid var(--danger); color: var(--text); }
+  .slot.invalid .slot-note { color: var(--danger); }
+
+  .strength { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .strength input { grid-column: 1 / -1; width: 100%; accent-color: var(--knob); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .primary {
+    width: 100%; padding: 11px 14px; border: 0; border-radius: var(--radius);
+    background: var(--knob); color: #1c1c1c; font-weight: 600; cursor: pointer;
+  }
+  .primary:disabled { background: var(--rule); color: var(--muted); cursor: not-allowed; }
+  .quiet {
+    padding: 7px 11px; border: 1px solid var(--rule); border-radius: var(--radius);
+    background: transparent; cursor: pointer;
+  }
+  .quiet:hover, .quiet[aria-pressed="true"] { border-color: var(--knob); }
+  .quiet:disabled { color: var(--muted); cursor: not-allowed; border-color: var(--rule); }
+
+  .stage {
+    flex: 1; min-height: 320px; display: grid; place-items: center;
+    background: var(--well); border-radius: var(--radius); overflow: hidden;
+  }
+  .stage img { max-width: 100%; max-height: calc(100vh - 150px); display: block; }
+  .stage p { color: var(--muted); max-width: 34ch; text-align: center; padding: 20px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar .spacer { flex: 1; }
+  .status { color: var(--muted); min-height: 1.45em; }
+  .status.error { color: var(--danger); }
+
+  .edits { overflow-y: auto; max-height: 100vh; position: sticky; top: 0; }
+  .edits h2 { font-size: 1rem; font-weight: 600; }
+  .edits .empty { color: var(--muted); margin-top: 8px; }
+  .group { padding: 14px 0; border-top: 1px solid var(--rule); }
+  .group:first-of-type { margin-top: 14px; }
+  .group h3 { font-size: 0.87rem; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 3px 0; }
+  .row .value { text-align: right; }
+  .track {
+    grid-column: 1 / -1; position: relative; height: 4px; margin: 5px 0 7px;
+    border-radius: 2px; background: var(--rule);
+  }
+  .track::before { /* neutral position */
+    content: ""; position: absolute; left: var(--zero); top: -3px; width: 1px; height: 10px;
+    background: var(--muted);
+  }
+  .track i {
+    position: absolute; left: var(--at); top: 50%; width: 11px; height: 11px;
+    margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--knob);
+    box-shadow: 0 0 0 2px var(--panel);
+  }
+  /* Tracks that mean a colour show that colour, as they do in a photo editor. */
+  .track[data-param="temperature"] { background: linear-gradient(90deg, #4f86d9, #d9c24f); }
+  .track[data-param="tint"] { background: linear-gradient(90deg, #58b368, #c95fc0); }
+  .track[data-param="saturation"] { background: linear-gradient(90deg, #8a8a8a, #d9534f); }
+  .track[data-param="exposure"], .track[data-param="highlights"], .track[data-param="shadows"],
+  .track[data-param="contrast"] { background: linear-gradient(90deg, #1d1d1d, #e3e3e3); }
+
+  /* The tone curve, drawn the way a photo editor draws it: input tones run
+     left to right from black to white, output tones bottom to top. */
+  .curve {
+    display: block; width: 100%; aspect-ratio: 1; margin-bottom: 10px;
+    background: var(--well); border: 1px solid var(--rule); border-radius: var(--radius);
+  }
+  .curve line, .curve polyline, .curve circle { vector-effect: non-scaling-stroke; }
+  .curve .grid { stroke: var(--rule); stroke-width: 1; }
+  .curve .unchanged { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 4; }
+  .curve .shape { fill: none; stroke: var(--knob); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .curve .handle { fill: var(--well); stroke: var(--knob); stroke-width: 1.5; }
+  .axis-note { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.8rem; margin: -4px 0 8px; }
+
+  .notes { color: var(--muted); font-size: 0.9rem; }
+  .notes p + p { margin-top: 8px; }
+  .score { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+
+  @media (max-width: 980px) {
+    .bench { grid-template-columns: 1fr; }
+    .inputs .pair { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .edits { max-height: none; position: static; }
+    .stage img { max-height: 70vh; }
+    .curve { max-width: 320px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .track i { transition: left 0.35s ease-out; }
+  }
+</style>
+</head>
+<body>
+<main class="bench">
+  <section class="inputs" aria-label="Photos">
+    <div>
+      <h1 class="title">PresetFit</h1>
+      <p class="lede">Copy the look of one photo onto another, and see the edits that did it.</p>
+    </div>
+    <div class="pair">
+      <div class="slot" id="source-slot">
+        <p class="slot-name" id="source-name">Your photo</p>
+        <label class="drop" id="source-drop">
+          <span id="source-hint">Drop a photo here, or click to choose</span>
+          <img id="source-thumb" alt="" hidden>
+          <input type="file" id="source" accept="image/*,.tif,.tiff" aria-labelledby="source-name" aria-describedby="source-note">
+        </label>
+        <p class="slot-note" id="source-note" role="status" aria-live="polite"></p>
+      </div>
+      <div class="slot" id="reference-slot">
+        <p class="slot-name" id="reference-name">Reference look</p>
+        <label class="drop" id="reference-drop">
+          <span id="reference-hint">Drop the photo whose look you want</span>
+          <img id="reference-thumb" alt="" hidden>
+          <input type="file" id="reference" accept="image/*,.tif,.tiff" aria-labelledby="reference-name" aria-describedby="reference-note">
+        </label>
+        <p class="slot-note" id="reference-note" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="strength">
+      <label for="strength">Strength</label>
+      <output class="num" id="strength-value" for="strength">100%</output>
+      <input type="range" id="strength" min="0" max="100" step="5" value="100">
+    </div>
+    <button class="primary" id="match" disabled>Match look</button>
+  </section>
+
+  <section class="viewer" aria-label="Result">
+    <div class="stage" id="stage">
+      <p id="placeholder">Add your photo and a reference, then choose Match look. The edited photo appears here.</p>
+    </div>
+    <div class="toolbar">
+      <button class="quiet" id="compare" aria-pressed="false" disabled>Show original</button>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+      <span class="spacer"></span>
+      <button class="quiet" id="save-photo" disabled>Download photo</button>
+      <button class="quiet" id="save-preset" disabled>Download preset</button>
+      <button class="quiet" id="save-lut" disabled>Download LUT</button>
+    </div>
+  </section>
+
+  <section class="edits" aria-label="Edits applied">
+    <div class="toolbar">
+      <h2>Edits applied</h2>
+      <span class="spacer"></span>
+      <button class="quiet" id="copy" disabled>Copy as text</button>
+    </div>
+    <p class="empty" id="edits-empty">Nothing yet. Every slider value used to match the look is listed here.</p>
+    <div id="edits"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+
+// One entry per upload box. `ok` turns true only after the server has checked
+// the file; `check` counts checks so a slow answer for an old file is ignored.
+const slots = {
+  source: { file: null, ok: false, objectUrl: null, preview: null, check: 0 },
+  reference: { file: null, ok: false, objectUrl: null, preview: null, check: 0 },
+};
+let schema = [];        // edits and their slider ranges, from the server
+let result = null;      // last successful match
+let matched = null;     // the photo that match was made from
+let busy = false;
+let showingOriginal = false;
+
+function setStatus(text, isError = false) {
+  $("status").textContent = text;
+  $("status").classList.toggle("error", isError);
+}
+
+function refreshButtons() {
+  $("match").disabled = busy || !(slots.source.ok && slots.reference.ok);
+  for (const id of ["compare", "save-photo", "save-preset", "save-lut", "copy"]) {
+    $(id).disabled = busy || !result;
+  }
+}
+
+async function readError(response) {
+  try {
+    const body = await response.json();
+    return body.detail || response.statusText;
+  } catch {
+    return response.statusText || "the app did not answer";
+  }
+}
+
+function describeFailure(error) {
+  // fetch() reports a dropped connection as a TypeError with a browser-specific message.
+  return error instanceof TypeError ? "the app is not responding; check that it is still running" : error.message;
+}
+
+function showSlot(slot, { thumbnail = null, hint = "", note = "", invalid = false }) {
+  const thumb = $(slot + "-thumb");
+  thumb.hidden = !thumbnail;
+  if (thumbnail) thumb.src = thumbnail;
+  $(slot + "-hint").hidden = Boolean(thumbnail);
+  $(slot + "-hint").textContent = hint;
+  $(slot + "-drop").classList.toggle("filled", Boolean(thumbnail));
+  $(slot + "-slot").classList.toggle("invalid", invalid);
+  $(slot + "-note").textContent = note;
+}
+
+async function choose(slot, file) {
+  if (!file) return;
+  const state = slots[slot];
+  const check = ++state.check;
+  if (state.objectUrl && state.objectUrl !== matched?.objectUrl) URL.revokeObjectURL(state.objectUrl);
+  Object.assign(state, { file, ok: false, preview: null, objectUrl: URL.createObjectURL(file) });
+  showSlot(slot, { hint: file.name, note: "Checking this photo…" });
+  refreshButtons();
+
+  try {
+    const body = new FormData();
+    body.append("photo", file);
+    const response = await fetch("api/v1/inspect", { method: "POST", body });
+    if (check !== state.check) return;   // a newer file was chosen meanwhile
+    if (!response.ok) throw new Error(await readError(response));
+    const info = await response.json();
+    Object.assign(state, { ok: true, preview: info.preview });
+    $(slot + "-thumb").alt = file.name;
+    showSlot(slot, {
+      thumbnail: info.preview,
+      note: `${file.name}, ${info.width} × ${info.height} px`,
+    });
+  } catch (error) {
+    if (check !== state.check) return;
+    showSlot(slot, {
+      hint: file.name,
+      note: `This photo can't be used: ${describeFailure(error)}. Choose a different file.`,
+      invalid: true,
+    });
+  }
+  refreshButtons();
+}
+
+for (const slot of ["source", "reference"]) {
+  const drop = $(slot + "-drop");
+  $(slot).addEventListener("change", (event) => {
+    choose(slot, event.target.files[0]);
+    event.target.value = "";   // so choosing the same file again is noticed
+  });
+  drop.addEventListener("dragover", (event) => { event.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    drop.classList.remove("over");
+    choose(slot, event.dataTransfer.files[0]);
+  });
+}
+
+$("strength").addEventListener("input", (event) => {
+  $("strength-value").textContent = event.target.value + "%";
+});
+
+function showImage(src, alt, fallback = null) {
+  const stage = $("stage");
+  let img = stage.querySelector("img");
+  if (!img) {
+    $("placeholder").remove();
+    img = document.createElement("img");
+    stage.append(img);
+  }
+  // Browsers cannot display every format the app can read (TIFF, for one).
+  img.onerror = fallback ? () => { img.onerror = null; img.src = fallback; } : null;
+  img.src = src;
+  img.alt = alt;
+}
+
+function element(tag, properties = {}, children = []) {
+  const node = Object.assign(document.createElement(tag), properties);
+  node.append(...children);
+  return node;
+}
+
+function svg(tag, attributes = {}) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  return node;
+}
+
+function sliderRow(param, value, text) {
+  const span = param.maximum - param.minimum;
+  const track = element("div", { className: "track" }, [document.createElement("i")]);
+  track.dataset.param = param.name;
+  track.style.setProperty("--zero", ((param.default - param.minimum) / span) * 100 + "%");
+  track.style.setProperty("--at", ((value - param.minimum) / span) * 100 + "%");
+  return element("div", { className: "row" }, [
+    element("span", { textContent: param.label }),
+    element("span", { className: "value num", textContent: text }),
+    track,
+  ]);
+}
+
+function textRow(labelText, valueText) {
+  return element("div", { className: "row" }, [
+    element("span", { textContent: labelText }),
+    element("span", { className: "value num", textContent: valueText }),
+  ]);
+}
+
+function curveGraph(curve, description) {
+  const top = curve.axis_max;
+  const pad = top * 0.04;                 // room so handles in the corners are not cut off
+  const flip = (y) => top - y;            // SVG counts y downwards; tone values count upwards
+  const graph = svg("svg", {
+    class: "curve",
+    viewBox: `${-pad} ${-pad} ${top + 2 * pad} ${top + 2 * pad}`,
+    role: "img",
+    "aria-label": description,
+  });
+  for (const fraction of [0.25, 0.5, 0.75]) {
+    const at = top * fraction;
+    graph.append(
+      svg("line", { class: "grid", x1: at, y1: 0, x2: at, y2: top }),
+      svg("line", { class: "grid", x1: 0, y1: at, x2: top, y2: at }),
+    );
+  }
+  graph.append(
+    svg("line", { class: "unchanged", x1: 0, y1: top, x2: top, y2: 0 }),
+    svg("polyline", { class: "shape", points: curve.points.map(([x, y]) => `${x},${flip(y)}`).join(" ") }),
+  );
+  for (const [x, y] of curve.handles) {
+    graph.append(svg("circle", { class: "handle", cx: x, cy: flip(y), r: top * 0.018 }));
+  }
+  return graph;
+}
+
+function renderEdits(data) {
+  const host = $("edits");
+  host.replaceChildren();
+  $("edits-empty").hidden = true;
+  for (const section of data.report.sections) {
+    const group = element("div", { className: "group" });
+    // A one-slider edit such as Exposure needs no heading repeating its name.
+    const selfTitled = section.lines.length === 1 && section.lines[0].label === section.label;
+    if (!selfTitled) group.append(element("h3", { textContent: section.label }));
+    if (section.curve) {
+      const summary = section.lines.map((line) => `${line.label}: ${line.value}`).join(", ");
+      group.append(
+        curveGraph(section.curve, `${section.label}. ${summary}`),
+        element("div", { className: "axis-note" }, [
+          element("span", { textContent: "Shadows" }),
+          element("span", { textContent: "Highlights" }),
+        ]),
+      );
+    }
+    const edit = schema.find((item) => item.name === section.name);
+    const simple = edit && edit.params.length <= 2 && edit.params.length === section.lines.length;
+    section.lines.forEach((line, index) => {
+      group.append(simple
+        ? sliderRow(edit.params[index], data.settings[edit.name][edit.params[index].name], line.value)
+        : textRow(line.label, line.value));
+    });
+    host.append(group);
+  }
+  const report = data.report;
+  host.append(element("div", { className: "group score" }, [
+    element("span", { textContent: "Look gap closed" }),
+    element("span", { className: "num", textContent: Math.round(report.improvement * 100) + "%" }),
+  ]));
+  if (report.notes.length) {
+    host.append(element("div", { className: "group notes" },
+      report.notes.map((note) => element("p", { textContent: note }))));
+  }
+}
+
+$("match").addEventListener("click", async () => {
+  const source = slots.source;
+  const body = new FormData();
+  body.append("source", source.file);
+  body.append("reference", slots.reference.file);
+  body.append("strength", String(Number($("strength").value) / 100));
+  busy = true;
+  refreshButtons();
+  setStatus("Matching the look…");
+  try {
+    const response = await fetch("api/v1/match", { method: "POST", body });
+    if (!response.ok) throw new Error(await readError(response));
+    result = await response.json();
+    matched = { name: source.file.name, objectUrl: source.objectUrl, preview: source.preview };
+    showingOriginal = false;
+    $("compare").setAttribute("aria-pressed", "false");
+    $("compare").textContent = "Show original";
+    showImage(result.image, "Your photo with the reference look applied");
+    renderEdits(result);
+    setStatus("Look matched.");
+  } catch (error) {
+    setStatus("Could not match the look: " + describeFailure(error), true);
+  } finally {
+    busy = false;
+    refreshButtons();
+  }
+});
+
+$("compare").addEventListener("click", () => {
+  showingOriginal = !showingOriginal;
+  $("compare").setAttribute("aria-pressed", String(showingOriginal));
+  $("compare").textContent = showingOriginal ? "Show edited" : "Show original";
+  if (showingOriginal) {
+    showImage(matched.objectUrl, "Your original photo", matched.preview);
+  } else {
+    showImage(result.image, "Your photo with the reference look applied");
+  }
+});
+
+function download(href, filename) {
+  const link = element("a", { href, download: filename });
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+async function downloadFromServer(path, filename) {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: result.settings, title: "PresetFit" }),
+    });
+    if (!response.ok) throw new Error(await readError(response));
+    const url = URL.createObjectURL(await response.blob());
+    download(url, filename);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    setStatus("Could not download the file: " + describeFailure(error), true);
+  }
+}
+
+$("save-photo").addEventListener("click", () => {
+  download(result.image, matched.name.replace(/\.[^.]+$/, "") + "_matched.jpg");
+});
+$("save-preset").addEventListener("click", () => downloadFromServer("api/v1/preset", "look.presetfit.json"));
+$("save-lut").addEventListener("click", () => downloadFromServer("api/v1/lut", "look.cube"));
+$("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(result.report_text);
+    setStatus("Edits copied.");
+  } catch {
+    setStatus("Could not copy. Your browser blocked clipboard access.", true);
+  }
+});
+
+fetch("api/v1/edits")
+  .then((response) => (response.ok ? response.json() : []))
+  .then((data) => { schema = data; })
+  .catch(() => { schema = []; });
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*_matched.jpg
+# Full-size test photos: may carry location data and are too large for the repository
+samples/
+# Private working notes, kept on this PC only
+HANDOFF.md
+CLAUDE.md

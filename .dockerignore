@@ -1,0 +1,14 @@
+.git
+.venv
+__pycache__
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+htmlcov
+.coverage
+samples
+docs
+HANDOFF.md
+CLAUDE.md
