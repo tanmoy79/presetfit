@@ -312,6 +312,49 @@ the internet:
 Uploaded photos are processed in memory and never written to disk. Returned
 pictures carry no metadata from the original.
 
+## References
+
+### Used in the code
+
+1. IEC 61966-2-1:1999, *Multimedia systems and equipment – Colour measurement
+   and management – Part 2-1: Default RGB colour space – sRGB*. The sRGB transfer
+   function and the RGB-to-XYZ matrix in `color/spaces.py`.
+   <https://webstore.iec.ch/en/publication/6169>
+2. ISO/CIE 11664-4:2019, *Colorimetry – Part 4: CIE 1976 L\*a\*b\* colour space*.
+   The Lab space used for every measurement and most edits (`color/spaces.py`).
+   <https://www.iso.org/standard/74166.html>
+3. F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic Interpolation",
+   *SIAM Journal on Numerical Analysis* 17(2), 238–246, 1980. The PCHIP curve
+   behind the tone curve (`edits/tone.py`, via SciPy).
+   <https://doi.org/10.1137/0717021>
+4. M. A. Branch, T. F. Coleman and Y. Li, "A Subspace, Interior, and Conjugate
+   Gradient Method for Large-Scale Bound-Constrained Minimization Problems",
+   *SIAM Journal on Scientific Computing* 21(1), 1–23, 1999. The trust-region
+   reflective solver that fits the sliders (`fitting/staged.py`, via SciPy).
+   <https://doi.org/10.1137/S1064827595289108>
+5. Adobe, *Cube LUT Specification*, version 1.0, 2013. The `.cube` file format
+   written by `export.py`. Adobe's original link no longer works; archived copy:
+   <https://web.archive.org/web/20201027210201/https://wwwimages2.adobe.com/content/dam/acom/en/products/speedgrade/cc/pdfs/cube-lut-specification-1.0.pdf>
+6. C. R. Harris et al., "Array programming with NumPy", *Nature* 585, 357–362,
+   2020. <https://doi.org/10.1038/s41586-020-2649-2>
+7. P. Virtanen et al., "SciPy 1.0: fundamental algorithms for scientific
+   computing in Python", *Nature Methods* 17, 261–272, 2020.
+   <https://doi.org/10.1038/s41592-019-0686-2>
+
+### Ideas the design follows
+
+8. E. Reinhard, M. Ashikhmin, B. Gooch and P. Shirley, "Color Transfer between
+   Images", *IEEE Computer Graphics and Applications* 21, 34–41, 2001.
+   <https://doi.org/10.1109/38.946629>
+   Describing a look by simple statistics in a space that separates lightness
+   from colour, and matching them. Reinhard et al. adjust pixels directly in
+   their lαβ space; PresetFit matches statistics in CIE Lab through named sliders.
+9. Y. Hu, H. He, C. Xu, B. Wang and S. Lin, "Exposure: A White-Box Photo
+   Post-Processing Framework", *ACM Transactions on Graphics* 37(2), 2018.
+   <https://doi.org/10.1145/3181974> (preprint: <https://arxiv.org/abs/1709.09602>)
+   Edits as named, understandable operations whose values are optimised. They
+   use a learned agent; PresetFit uses least-squares fitting.
+
 ## Licence
 
 MIT. See `LICENSE`.
