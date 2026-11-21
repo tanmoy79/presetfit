@@ -21,6 +21,15 @@ api = [
     "uvicorn[standard]>=0.29",
     "python-multipart>=0.0.9",
 ]
+train = [
+    "torch>=2.3",
+    "timm>=1.0",
+    "huggingface_hub>=0.23",
+    "safetensors>=0.4",
+]
+bench = [
+    "scikit-image>=0.22",
+]
 dev = [
     "presetfit[api]",
     "pytest>=8",
@@ -66,6 +75,8 @@ exclude_also = ["if __name__ == .__main__.:", "raise NotImplementedError"]
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
+# Notebooks hold long shell commands for Colab; they are checked by running them.
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "C4", "PT", "RUF"]
@@ -80,5 +91,10 @@ files = ["src"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["scipy.*"]
+module = ["scipy.*", "timm.*", "skimage.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# scikit-image ships without type hints; the benchmark is the only user.
+module = ["presetfit.evaluation.*"]
+disallow_untyped_calls = false

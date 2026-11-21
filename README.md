@@ -221,13 +221,27 @@ src/presetfit/
 ├── export.py         PresetCodec (JSON), CubeLutExporter (.cube)
 ├── service.py        PresetFitService: the one entry point
 ├── cli.py            command line
-└── api/              web server (FastAPI); serves the built page from static/
+├── api/              web server (FastAPI); serves the built page from static/
+├── learning/         the neural network (optional; needs PyTorch, see "Training")
+│   ├── model.py        LookTransferNet: reference reader + U-Net generator
+│   ├── render.py       TorchRenderer: the eight edits again, differentiable, on GPU
+│   ├── data.py         TST100K packs, test-set overlap check, train/validation split
+│   ├── prepare.py      downloads and packs the data (run once)
+│   ├── train.py        Trainer: training loop with checkpoints and resume
+│   ├── lut.py          carries a look from a small image to a full-size one
+│   ├── slider_fit.py   the slider values that reproduce a result, pixel by pixel
+│   ├── sliders.py      SliderCodec: settings <-> vectors
+│   └── transfer.py     LearnedLookTransfer: a trained network on full-size photos
+└── evaluation/
+    └── benchmark.py    scores methods on the TST2K test set
+notebooks/
+└── train_colab.ipynb prepare, train and score on a free Colab GPU
 frontend/             the web page: React + TypeScript, built with Vite
 ├── src/api/          the only code that talks to the server, and its data types
 ├── src/components/   PhotoSlot, CompareView, EditsPanel, ToneCurve, Downloads
 ├── src/hooks/        usePhotoSlot: checks each photo as soon as it is chosen
 └── src/styles.css    the design: a neutral viewing wall, so photos' colours read true
-tests/                Python tests, 99% coverage (frontend tests live beside their code)
+tests/                Python tests, 97% coverage (frontend tests live beside their code)
 ```
 
 Dependencies point one way: `cli` and `api` → `service` → `fitting`, `rendering`,
@@ -291,7 +305,7 @@ active:
 ```bash
 ruff check .            # lint: likely mistakes and style problems
 ruff format --check .   # code layout (run "ruff format ." to fix it)
-python -m mypy          # strict type check
+python -m mypy          # strict type check (needs ".[train,bench]" installed)
 pytest --cov            # tests, with a coverage report
 ```
 
@@ -315,6 +329,30 @@ Where `make` is available, `make check` runs all of these.
 - **Tests:** pytest; warnings in project code fail the build; coverage must stay above 90%
 - **Frontend:** React 19, TypeScript, Vite; tests with Vitest and Testing Library
 - **CI:** GitHub Actions runs all of the above, the Python checks on 3.10 to 3.13
+
+## Training
+
+PresetFit is moving from hand-written fitting to a neural network trained on
+[TST100K](https://huggingface.co/datasets/ToneStyle/TST100K): about 109,000
+examples of a photo, a reference with some look, and the photo correctly edited
+in that look. The network redraws a 256 x 256 copy of your photo in the
+reference's look; a colour lookup table fitted between the small photo and the
+small result then carries the look to the full-size photo, and the eight
+sliders are fitted the same way for the edits list.
+
+Training needs a GPU. The easiest route is the Colab notebook
+`notebooks/train_colab.ipynb` (*Runtime -> Run all*). On a machine with a GPU:
+
+```bash
+pip install -e ".[train,bench]"
+python -m presetfit.learning.prepare --out data          # once: ~75 GB download, ~6 GB kept
+python -m presetfit.learning.train --packs data/packs --split data/split.json --out runs/main
+python -m presetfit.evaluation.benchmark data/tst2k_512 --methods identity,learned \
+    --checkpoint runs/main/best.pt --device cuda
+```
+
+The TST100K and TST2K datasets are licensed for non-commercial research only,
+and so is a network trained on them.
 
 ## Deployment
 

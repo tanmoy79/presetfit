@@ -1,7 +1,7 @@
 .PHONY: install lint format typecheck test check serve docker frontend frontend-check frontend-dev
 
-install:  ## Install the project with development tools, and build the web page
-	pip install -e ".[dev]"
+install:  ## Install the project with development and training tools, and build the web page
+	pip install -e ".[dev,train,bench]"
 	cd frontend && npm install && npm run build
 
 lint:  ## Check style and common bugs
