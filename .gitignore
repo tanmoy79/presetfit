@@ -15,3 +15,6 @@ samples/
 # Private working notes, kept on this PC only
 HANDOFF.md
 CLAUDE.md
+# React: installed packages, and the built page (made by `npm run build`)
+frontend/node_modules/
+src/presetfit/api/static/

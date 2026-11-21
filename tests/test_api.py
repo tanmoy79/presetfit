@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from collections.abc import Iterator
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,6 +13,7 @@ from fastapi.testclient import TestClient
 from presetfit import ColorSpace, ImageReader, Pixels, PresetFitService
 from presetfit import __version__ as package_version
 from presetfit.api import ApiSettings, create_app
+from presetfit.api import app as app_module
 
 from .helpers import encode, lab_difference, settings_with
 
@@ -41,13 +44,40 @@ def test_health(client: TestClient) -> None:
     assert response.json() == {"status": "ok", "version": package_version}
 
 
+_BUILT = (Path(app_module.__file__).parent / "static" / "index.html").is_file()
+needs_built_page = pytest.mark.skipif(
+    not _BUILT, reason="web page not built: run `npm run build` in frontend/"
+)
+
+
+@needs_built_page
 def test_index_page_is_served_with_security_headers(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "Match look" in response.text
+    assert '<div id="root">' in response.text
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
+
+
+@needs_built_page
+def test_page_assets_and_icon_are_served(client: TestClient) -> None:
+    page = client.get("/").text
+    for asset in re.findall(r'(?:src|href)="\./(assets/[^"]+)"', page):
+        response = client.get(f"/{asset}")
+        assert response.status_code == 200, asset
+    assert client.get("/favicon.svg").headers["content-type"].startswith("image/svg+xml")
+
+
+def test_missing_page_build_is_explained(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(app_module, "_INDEX_PAGE", tmp_path / "index.html")
+    monkeypatch.setattr(app_module, "_STATIC_DIR", tmp_path)
+    response = client.get("/")
+    assert response.status_code == 503
+    assert "npm run build" in response.text
+    assert client.get("/favicon.svg").status_code == 404
 
 
 def test_edits_endpoint_describes_every_slider(

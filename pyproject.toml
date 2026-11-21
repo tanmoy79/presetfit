@@ -40,7 +40,7 @@ version = { attr = "presetfit._version.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-presetfit = ["py.typed", "api/static/*.html"]
+presetfit = ["py.typed", "api/static/*", "api/static/assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

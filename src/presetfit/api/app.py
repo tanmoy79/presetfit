@@ -13,7 +13,8 @@ from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from presetfit._version import __version__
@@ -45,7 +46,14 @@ from presetfit.service import PresetFitService
 
 logger = logging.getLogger(__name__)
 
-_INDEX_PAGE = Path(__file__).parent / "static" / "index.html"
+# The React page, built by `npm run build` in frontend/ (see frontend/vite.config.ts).
+_STATIC_DIR = Path(__file__).parent / "static"
+_INDEX_PAGE = _STATIC_DIR / "index.html"
+_NOT_BUILT = (
+    "<!doctype html><title>PresetFit</title><p>The web page has not been built yet. "
+    "Run <code>npm install</code> and <code>npm run build</code> in the <code>frontend</code> "
+    "folder, then reload.</p>"
+)
 _READ_CHUNK_BYTES = 1024 * 1024
 _PREVIEW_EDGE = 640
 
@@ -91,9 +99,19 @@ router = APIRouter()
 
 
 @router.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    """Serve the single-page web interface."""
+def index() -> Response:
+    """Serve the single-page web interface, or explain how to build it."""
+    if not _INDEX_PAGE.is_file():
+        return HTMLResponse(_NOT_BUILT, status_code=503)
     return FileResponse(_INDEX_PAGE, media_type="text/html")
+
+
+@router.get("/favicon.svg", include_in_schema=False)
+def favicon() -> Response:
+    icon = _STATIC_DIR / "favicon.svg"
+    if not icon.is_file():
+        return Response(status_code=404)
+    return FileResponse(icon, media_type="image/svg+xml")
 
 
 @router.get("/health", response_model=HealthResponse, tags=["operations"])
@@ -218,6 +236,11 @@ def create_app(
     )
     app.state.context = _Context(service or PresetFitService.create_default(), settings)
     app.include_router(router)
+    # The page's scripts, styles and fonts. check_dir=False lets the API start
+    # before the page has been built; index() then explains what to do.
+    app.mount(
+        "/assets", StaticFiles(directory=_STATIC_DIR / "assets", check_dir=False), name="assets"
+    )
     _install_error_handlers(app)
 
     @app.middleware("http")

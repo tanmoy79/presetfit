@@ -12,3 +12,5 @@ samples
 docs
 HANDOFF.md
 CLAUDE.md
+frontend/node_modules
+src/presetfit/api/static

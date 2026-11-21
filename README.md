@@ -64,7 +64,8 @@ Measured with version 0.1.0 on 10 October 2026: a 24-megapixel photo took about
 
 ## Quick start
 
-Requires Python 3.10 or newer.
+Requires Python 3.10 or newer and [Node.js](https://nodejs.org) 22 or newer.
+Node is only needed to build the web page once; the running app is pure Python.
 
 ```bash
 git clone https://github.com/tanmoy79/presetfit.git
@@ -72,6 +73,10 @@ cd presetfit
 python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install ".[api]"
+cd frontend
+npm install
+npm run build                      # writes the page into src/presetfit/api/static
+cd ..
 ```
 
 To work on the code instead, install it in editable mode with the development
@@ -83,10 +88,11 @@ tools: `pip install -e ".[dev]"`.
 presetfit serve
 ```
 
-Open <http://127.0.0.1:8000>, drop in your two photos and choose **Match look**.
-Each photo is checked the moment you add it, and a file that cannot be used is
-flagged under that photo. From the result you can compare with the original and
-download the photo, a reusable preset, or a `.cube` LUT.
+Open <http://127.0.0.1:8000>, add your photo and the photo whose look you want,
+and choose **Match the look**. Each photo is checked the moment you add it, and a
+file that cannot be used is flagged under that photo. Drag across the result to
+compare it with your original, then download the photo, a reusable preset, or a
+`.cube` LUT.
 
 **Photo formats:** JPEG (including the MPO files many cameras save as `.JPG`),
 PNG, WebP, TIFF and BMP. Camera RAW and HEIC are not supported yet.
@@ -215,8 +221,13 @@ src/presetfit/
 ├── export.py         PresetCodec (JSON), CubeLutExporter (.cube)
 ├── service.py        PresetFitService: the one entry point
 ├── cli.py            command line
-└── api/              web app (FastAPI) and the single-page interface
-tests/                313 tests, 99% coverage
+└── api/              web server (FastAPI); serves the built page from static/
+frontend/             the web page: React + TypeScript, built with Vite
+├── src/api/          the only code that talks to the server, and its data types
+├── src/components/   PhotoSlot, CompareView, EditsPanel, ToneCurve, Downloads
+├── src/hooks/        usePhotoSlot: checks each photo as soon as it is chosen
+└── src/styles.css    the design: a neutral viewing wall, so photos' colours read true
+tests/                Python tests, 99% coverage (frontend tests live beside their code)
 ```
 
 Dependencies point one way: `cli` and `api` → `service` → `fitting`, `rendering`,
@@ -284,12 +295,26 @@ python -m mypy          # strict type check
 pytest --cov            # tests, with a coverage report
 ```
 
-Where `make` is available, `make check` runs the same commands.
+The web page has its own checks, from the `frontend` folder:
+
+```bash
+npm run lint            # likely mistakes (oxlint)
+npm run typecheck       # TypeScript type check
+npm test                # component tests (Vitest + Testing Library)
+npm run build           # build the page into the Python package
+```
+
+While working on the page, `npm run dev` serves it at <http://localhost:5173>
+and reloads on every save; it sends API calls to `presetfit serve`, which must
+be running at the same time.
+
+Where `make` is available, `make check` runs all of these.
 
 - **Style and linting:** Ruff
 - **Types:** mypy in strict mode
 - **Tests:** pytest; warnings in project code fail the build; coverage must stay above 90%
-- **CI:** GitHub Actions runs all of the above on Python 3.10 to 3.13
+- **Frontend:** React 19, TypeScript, Vite; tests with Vitest and Testing Library
+- **CI:** GitHub Actions runs all of the above, the Python checks on 3.10 to 3.13
 
 ## Deployment
 

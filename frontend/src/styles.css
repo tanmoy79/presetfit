@@ -1,0 +1,588 @@
+/*
+  PresetFit: prints on a viewing wall.
+
+  Photographers judge prints on neutral grey walls, because any colour around
+  a photo changes how its colours look. This page follows the same rule: the
+  wall, the mats and the type are all neutral grey, and the only colour on the
+  page is inside the photos and on slider tracks whose colour is the meaning.
+*/
+
+:root {
+  --wall: #d4d4d2;
+  --mat: #fafafa;
+  --well: #ececea; /* an empty print, waiting for a photo */
+  --ink: #1a1a1a;
+  --ink-soft: #555555;
+  --rule: #b8b8b6;
+  --mat-ink: #1a1a1a;
+  --mat-ink-soft: #5c5c5c;
+  --error: #9b2c2c;
+  --print-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 8px 24px rgb(0 0 0 / 0.12);
+
+  --font: 'Schibsted Grotesk Variable', 'Segoe UI', system-ui, sans-serif;
+  --step-0: 1rem;
+  --step--1: 0.8125rem;
+  --step-1: 1.25rem;
+  --step-4: clamp(2.75rem, 7vw, 5rem);
+
+  color-scheme: light;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--wall);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wall: #353534;
+    --well: #e2e2e0;
+    --mat: #f2f2f0;
+    --ink: #efefed;
+    --ink-soft: #b4b4b2;
+    --rule: #50504e;
+    --error: #ffb4a8;
+    --print-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px rgb(0 0 0 / 0.35);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--wall);
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Page ---------------------------------------------------------------- */
+
+.wall {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 48px) 48px;
+}
+
+.masthead {
+  margin-bottom: clamp(32px, 6vw, 64px);
+}
+
+.masthead h1 {
+  font-size: var(--step-4);
+  font-weight: 760;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+.lede {
+  margin-top: 12px;
+  max-width: 44ch;
+  font-size: var(--step-1);
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.caption {
+  margin-top: 10px;
+  min-height: 1.5em;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: var(--error);
+}
+
+.step {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+/* ---- Prints ---------------------------------------------------------------
+   The only element with a mat and a shadow, because it is the only thing on
+   the wall that is a photograph. */
+
+.print {
+  position: relative;
+  background: var(--mat);
+  padding: 12px 12px 14px;
+  box-shadow: var(--print-shadow);
+}
+
+.print img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- Choosing photos ------------------------------------------------------ */
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 4vw, 56px);
+  align-items: start;
+}
+
+.slot-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 12px;
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.drop {
+  cursor: pointer;
+}
+
+.drop input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.drop:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.drop-hint {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 2;
+  padding: 16px;
+  background: var(--well);
+  color: var(--mat-ink-soft);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.drop.is-dragging .drop-hint {
+  color: var(--mat-ink);
+  outline: 2px dashed var(--mat-ink);
+  outline-offset: -10px;
+}
+
+.slot[data-status='ready'] .drop img {
+  max-height: 420px;
+  object-fit: contain;
+}
+
+.slot[data-status='checking'] .drop-hint {
+  color: var(--mat-ink);
+}
+
+.slot[data-status='invalid'] .drop {
+  box-shadow: 0 0 0 2px var(--error), var(--print-shadow);
+}
+
+/* ---- Matching ------------------------------------------------------------- */
+
+.action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 280px) auto;
+  justify-content: start;
+  gap: 8px 32px;
+  align-items: center;
+  margin-top: clamp(28px, 5vw, 48px);
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+
+.action .step {
+  font-size: var(--step-1);
+}
+
+.action .caption {
+  grid-column: 2 / -1;
+  margin-top: 0;
+}
+
+.strength {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+}
+
+.strength input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--ink);
+}
+
+.strength output {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.button {
+  padding: 10px 16px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: transparent;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button.primary {
+  padding: 14px 28px;
+  background: var(--ink);
+  color: var(--wall);
+  font-size: var(--step-0);
+}
+
+.button.quiet {
+  border-color: var(--rule);
+  font-weight: 500;
+}
+
+.button.quiet:hover {
+  border-color: var(--ink);
+}
+
+.button:disabled {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+/* ---- Result --------------------------------------------------------------- */
+
+.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+  margin-top: clamp(40px, 6vw, 72px);
+}
+
+/* The photo stays in view while the edits beside it are read. */
+.result-photo {
+  position: sticky;
+  top: 24px;
+}
+
+.compare-frame {
+  cursor: ew-resize;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.compare-frame img {
+  max-height: 78vh;
+  object-fit: contain;
+}
+
+.compare-before {
+  position: absolute;
+  inset: 12px 12px 14px;
+  width: calc(100% - 24px) !important;
+  height: calc(100% - 26px) !important;
+  max-height: none !important;
+  clip-path: inset(0 calc(100% - var(--split)) 0 0);
+}
+
+.compare-divider {
+  position: absolute;
+  top: 12px;
+  bottom: 14px;
+  left: calc(12px + (100% - 24px) * var(--split) / 100%);
+  width: 2px;
+  margin-left: -1px;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+.compare-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+.compare:has(input:focus-visible) .compare-frame {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.compare-tag {
+  position: absolute;
+  top: 24px;
+  padding: 2px 8px;
+  background: rgb(250 250 250 / 0.85);
+  color: #1a1a1a;
+  font-size: var(--step--1);
+  font-weight: 500;
+}
+
+.compare-tag-before {
+  left: 24px;
+}
+
+.compare-tag-after {
+  right: 24px;
+}
+
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.downloads .caption {
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+
+/* ---- How it was done ------------------------------------------------------ */
+
+.edits h2 {
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.score {
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+.score strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.edit {
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.edit:first-of-type {
+  margin-top: 16px;
+}
+
+.edit h3 {
+  margin-bottom: 8px;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.edit-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 12px;
+  padding: 3px 0;
+}
+
+.edit-line dd {
+  text-align: right;
+}
+
+.track {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 4px;
+  margin: 6px 0 8px;
+  border-radius: 2px;
+  background: var(--rule);
+}
+
+.track::before {
+  /* where the slider sits when nothing is changed */
+  content: '';
+  position: absolute;
+  left: var(--zero);
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  background: var(--ink-soft);
+}
+
+.track i {
+  position: absolute;
+  left: var(--at);
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--wall);
+}
+
+/* Tracks that stand for a colour show that colour, as photo editors do. */
+.track[data-param='temperature'] {
+  background: linear-gradient(90deg, #4f86d9, #d9c24f);
+}
+
+.track[data-param='tint'] {
+  background: linear-gradient(90deg, #58b368, #c95fc0);
+}
+
+.track[data-param='saturation'] {
+  background: linear-gradient(90deg, #8a8a8a, #d9534f);
+}
+
+.track[data-param='exposure'],
+.track[data-param='contrast'],
+.track[data-param='highlights'],
+.track[data-param='shadows'] {
+  background: linear-gradient(90deg, #1d1d1d, #e8e8e8);
+}
+
+.curve svg {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 1;
+  background: var(--mat);
+}
+
+.curve line,
+.curve polyline,
+.curve circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.curve-grid line {
+  stroke: #d8d8d6;
+  stroke-width: 1;
+}
+
+.curve-unchanged {
+  stroke: #9a9a98;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.curve-shape {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.curve-handle {
+  fill: var(--mat);
+  stroke: #1a1a1a;
+  stroke-width: 1.5;
+}
+
+.curve-axis {
+  display: flex;
+  justify-content: space-between;
+  max-width: 300px;
+  margin: 4px 0 8px;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.notes {
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.notes p + p {
+  margin-top: 8px;
+}
+
+.colophon {
+  margin-top: 64px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+/* ---- Narrow screens -------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .result-photo {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .pair {
+    gap: 16px;
+  }
+
+  .slot-title {
+    font-size: var(--step-0);
+  }
+
+  .action {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .action .button.primary {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .action .caption {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .track i {
+    transition: left 0.35s ease-out;
+  }
+}
