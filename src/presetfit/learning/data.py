@@ -82,6 +82,45 @@ def load_manifest(path: Path) -> list[Triplet]:
     return [Triplet(r["content"], r["reference"], r["gt"]) for r in records]
 
 
+def same_preset_triplets(files: Iterable[str], per_preset: int, seed: int = 0) -> list[Triplet]:
+    """Build triplets from edited photos that share a preset.
+
+    Two photos edited with the same Lightroom preset carry the same look, so
+    photo A with preset X can serve as the reference for photo B, with photo B
+    in preset X as the right answer. Most of TST100K's own triplets (74%) are
+    exactly such pairs. Taking only ``per_preset`` edited photos per preset and
+    pairing them every way gives many examples from a small download: with 12
+    per preset, about 262,000 examples from 10.6 GB instead of 78 GB.
+
+    Unlike TST100K's own triplets, these pairs were not checked by hand; a few
+    presets adapt to each photo, so a small share may be imperfect examples.
+
+    Args:
+        files: Every file path in the dataset (content and style images).
+        per_preset: How many edited photos to use per preset, chosen at random.
+        seed: Makes the random choice repeatable.
+    """
+    originals = {photo_id(path): path for path in files if path.startswith("content_images/")}
+    by_preset: dict[str, list[str]] = defaultdict(list)
+    for path in files:
+        if not path.startswith("style_images/"):
+            continue
+        photo, _, preset = PurePosixPath(path).stem.partition("_")
+        if preset and photo in originals:
+            by_preset[preset].append(path)
+    rng = random.Random(seed)
+    triplets = []
+    for preset in sorted(by_preset):
+        chosen = sorted(by_preset[preset])
+        rng.shuffle(chosen)
+        chosen = chosen[:per_preset]
+        for answer in chosen:
+            for reference in chosen:
+                if photo_id(reference) != photo_id(answer):
+                    triplets.append(Triplet(originals[photo_id(answer)], reference, answer))
+    return triplets
+
+
 # --- packs -------------------------------------------------------------------
 
 

@@ -108,6 +108,12 @@ def fake_hub(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
                 shutil.copy(file, target)
         return str(local_dir)
 
+    class FakeApi:
+        def list_repo_files(self, repo: str, repo_type: str) -> list[str]:
+            root = hub / repo
+            return sorted(f.relative_to(root).as_posix() for f in root.rglob("*") if f.is_file())
+
+    monkeypatch.setattr(huggingface_hub, "HfApi", FakeApi)
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", hf_hub_download)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
     return hub
@@ -126,6 +132,16 @@ def test_prepare_packs_data_and_leaves_out_test_photos(fake_hub: Path, tmp_path:
     assert (out / "tst2k_512" / "0000" / "gt.png").exists()
     # A second run finds everything done and changes nothing.
     assert prepare_module.prepare(out, workers=1) == counts
+
+
+def test_prepare_builds_same_preset_examples(fake_hub: Path, tmp_path: Path) -> None:
+    out = tmp_path / "data"
+    counts = prepare_module.prepare(out, workers=1, per_preset=3)
+    # Two presets, three photos each, paired every way: 2 x 3 x 2 = 12 examples.
+    assert counts["triplets"] == 12
+    split = json.loads((out / "split.json").read_text())
+    for row in split["train"] + split["validation"]:
+        assert row["reference"].rsplit("_", 1)[1] == row["gt"].rsplit("_", 1)[1]
 
 
 def test_prepare_command_line(

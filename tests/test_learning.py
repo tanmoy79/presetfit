@@ -146,6 +146,23 @@ def test_photo_id_ignores_folder_and_preset() -> None:
     assert photo_id("style_images/013/12615_0526.png") == "12615"
 
 
+def test_same_preset_triplets_pair_photos_that_share_a_preset() -> None:
+    from presetfit.learning.data import same_preset_triplets
+
+    files = [f"content_images/00/{i:05d}.tif" for i in range(5)]
+    files += [f"style_images/000/{i:05d}_0007.png" for i in range(5)]
+    files += ["style_images/000/00001_0008.png", "style_images/000/00099_0007.png"]
+    triplets = same_preset_triplets(files, per_preset=3)
+    # Preset 0007: 3 of its 5 usable photos, paired every way = 6 examples.
+    # Preset 0008 has one photo (nothing to pair); photo 99 has no original.
+    assert len(triplets) == 6
+    for triplet in triplets:
+        assert photo_id(triplet.content) == photo_id(triplet.gt) != photo_id(triplet.reference)
+        assert triplet.gt.endswith("_0007.png")
+        assert triplet.reference.endswith("_0007.png")
+    assert same_preset_triplets(files, per_preset=3) == triplets  # repeatable
+
+
 def test_pack_round_trip(tmp_path: Path) -> None:
     image = (make_scene(seed=9).data * 255).astype(np.uint8)
     from presetfit.learning.data import shrink

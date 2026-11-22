@@ -2,8 +2,10 @@
 
 Steps, each skipped if already done:
 
-1. Download TST100K's ``triplet.json``.
-2. Download every TST100K image and pack it at 256 x 256 (about 4-5 GB).
+1. Choose the training examples: TST100K's own ``triplet.json``, or (with
+   ``--per-preset N``) pairs of photos edited with the same preset, built from
+   a small part of the dataset (see :func:`same_preset_triplets`).
+2. Download the images those examples need and pack them at 256 x 256.
 3. Download the TST2K test set and keep a copy at 512 px on the long edge, the
    size the benchmark uses (about 2 GB).
 4. Find TST100K photos that also appear in TST2K and leave them out.
@@ -31,6 +33,7 @@ from presetfit.learning.data import (
     find_overlap,
     load_manifest,
     photo_id,
+    same_preset_triplets,
     split_triplets,
     structure_signature,
 )
@@ -83,15 +86,20 @@ def prepare(
     test_limit: int | None = None,
     threshold: float = 0.6,
     workers: int | None = None,
+    per_preset: int | None = None,
 ) -> dict[str, int]:
     """Run every step and return a few counts for the record."""
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import HfApi, hf_hub_download
 
     out.mkdir(parents=True, exist_ok=True)
-    manifest_path = Path(
-        hf_hub_download(TST100K_REPO, "triplet.json", repo_type="dataset", local_dir=out)
-    )
-    triplets = load_manifest(manifest_path)
+    if per_preset:
+        files = HfApi().list_repo_files(TST100K_REPO, repo_type="dataset")
+        triplets = same_preset_triplets(files, per_preset)
+    else:
+        manifest_path = Path(
+            hf_hub_download(TST100K_REPO, "triplet.json", repo_type="dataset", local_dir=out)
+        )
+        triplets = load_manifest(manifest_path)
     if limit:
         triplets = random.Random(0).sample(triplets, limit)
     logger.info("step 2: packing images for %d triplets", len(triplets))
@@ -147,10 +155,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--test-limit", type=int, help="use only the first N test triplets")
     parser.add_argument("--threshold", type=float, default=0.6)
     parser.add_argument("--workers", type=int)
+    parser.add_argument(
+        "--per-preset",
+        type=int,
+        help="build examples from N edited photos per preset instead of triplet.json",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per downloaded file is noise
-    counts = prepare(args.out, args.limit, args.test_limit, args.threshold, args.workers)
+    counts = prepare(
+        args.out, args.limit, args.test_limit, args.threshold, args.workers, args.per_preset
+    )
     print(json.dumps(counts, indent=2))
     return 0
 

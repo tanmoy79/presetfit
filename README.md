@@ -345,7 +345,7 @@ Training needs a GPU. The easiest route is the Colab notebook
 
 ```bash
 pip install -e ".[train,bench]"
-python -m presetfit.learning.prepare --out data          # once: ~75 GB download, ~6 GB kept
+python -m presetfit.learning.prepare --out data --per-preset 12   # once: ~25 GB download, ~2 GB kept
 python -m presetfit.learning.train --packs data/packs --split data/split.json --out runs/main
 python -m presetfit.evaluation.benchmark data/tst2k_512 --methods identity,learned \
     --checkpoint runs/main/best.pt --device cuda
